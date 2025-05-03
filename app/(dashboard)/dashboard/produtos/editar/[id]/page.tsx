@@ -1,3 +1,5 @@
+"use client"
+
 import { getProdutoPorId } from "@/lib/services/produtos-service"
 import { ProductEditForm } from "@/components/product-edit-form"
 

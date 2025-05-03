@@ -34,9 +34,7 @@ const formSchema = z.object({
   quantidade: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  imagem: z.instanceof(FileList).refine((files) => files.length === 0 || files.length > 0, {
-    message: "A imagem é obrigatória.",
-  }),
+  imagem: z.any(), // Usar z.any() para evitar referência a FileList no servidor
 })
 
 export async function getProdutos() {

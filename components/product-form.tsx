@@ -4,7 +4,6 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -14,31 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, ImageIcon, Trash2 } from "lucide-react"
 import { criarProduto, uploadImagem, getCategorias } from "@/lib/services/produtos-service"
-
-// Esquema de validação do formulário
-const formSchema = z.object({
-  nome: z.string().min(3, {
-    message: "O nome do produto deve ter pelo menos 3 caracteres.",
-  }),
-  descricao: z.string().min(10, {
-    message: "A descrição deve ter pelo menos 10 caracteres.",
-  }),
-  valor: z.coerce.number().positive({
-    message: "O preço deve ser um valor positivo.",
-  }),
-  categoria_id: z.coerce.number().int().positive({
-    message: "Selecione uma categoria.",
-  }),
-  tamanho: z.string().optional(),
-  quantidade: z.coerce.number().int().positive({
-    message: "A quantidade deve ser um número inteiro positivo.",
-  }),
-  imagem: z.instanceof(FileList).refine((files) => files.length > 0, {
-    message: "A imagem é obrigatória.",
-  }),
-})
-
-type FormValues = z.infer<typeof formSchema>
+import { newProductFormSchema, type NewProductFormValues } from "@/lib/schemas/product-schema"
 
 export function ProductForm() {
   const router = useRouter()
@@ -48,8 +23,8 @@ export function ProductForm() {
   const [categorias, setCategorias] = useState<{ id: number; nome: string }[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<NewProductFormValues>({
+    resolver: zodResolver(newProductFormSchema),
     defaultValues: {
       nome: "",
       descricao: "",
@@ -101,7 +76,7 @@ export function ProductForm() {
     }
   }, [])
 
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(data: NewProductFormValues) {
     setIsLoading(true)
 
     try {
