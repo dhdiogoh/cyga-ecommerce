@@ -20,7 +20,7 @@ export const productFormSchema = z.object({
   quantidade: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  imagem: z.instanceof(FileList).optional(),
+  imagem: typeof FileList !== "undefined" ? z.instanceof(FileList).optional() : z.any(),
 })
 
 // Esquema de validação para o formulário de produto (novo produto)
@@ -41,9 +41,12 @@ export const newProductFormSchema = z.object({
   quantidade: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  imagem: z.instanceof(FileList).refine((files) => files.length > 0, {
-    message: "A imagem é obrigatória.",
-  }),
+  imagem:
+    typeof FileList !== "undefined"
+      ? z.instanceof(FileList).refine((files) => files.length > 0, {
+          message: "A imagem é obrigatória.",
+        })
+      : z.any(),
 })
 
 export type ProductFormValues = z.infer<typeof productFormSchema>
