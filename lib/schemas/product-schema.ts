@@ -21,6 +21,7 @@ export const productFormSchema = z.object({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
   imagem: typeof FileList !== "undefined" ? z.instanceof(FileList).optional() : z.any(),
+  status: z.boolean().default(true), // Adicionar campo status com default true
 })
 
 // Esquema de validação para o formulário de produto (novo produto)
@@ -47,6 +48,7 @@ export const newProductFormSchema = z.object({
           message: "A imagem é obrigatória.",
         })
       : z.any(),
+  status: z.boolean().default(true), // Adicionar campo status com default true
 })
 
 export type ProductFormValues = z.infer<typeof productFormSchema>

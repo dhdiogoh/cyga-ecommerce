@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ProductsTable } from "@/components/products-table"
+import { ProductsTableEnhanced } from "@/components/products-table-enhanced"
 import { PlusCircle } from "lucide-react"
 
 export default function ProductsPage() {
@@ -15,7 +15,7 @@ export default function ProductsPage() {
           </Button>
         </Link>
       </div>
-      <ProductsTable />
+      <ProductsTableEnhanced />
     </div>
   )
 }

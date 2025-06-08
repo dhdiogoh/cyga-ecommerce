@@ -14,6 +14,7 @@ export type Produto = {
   quantidade: number
   tamanho?: string
   categoria_id: number
+  status?: boolean // Adicionado campo status
 }
 
 // Esquema de validação do formulário
@@ -35,6 +36,7 @@ const formSchema = z.object({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
   imagem: z.any(), // Usar z.any() para evitar referência a FileList no servidor
+  status: z.boolean().optional().default(true), // Adicionado campo status com default true
 })
 
 export async function getProdutos() {
@@ -84,6 +86,7 @@ export async function criarProduto(produto: Produto) {
       quantidade: produto.quantidade,
       tamanho: produto.tamanho,
       categoria_id: produto.categoria_id,
+      status: produto.status !== undefined ? produto.status : true, // Definir status como true por padrão
     })
     .select()
     .single()
@@ -123,6 +126,7 @@ export async function atualizarProduto(id: string, produto: Partial<Produto>) {
       quantidade: produto.quantidade,
       tamanho: produto.tamanho,
       categoria_id: produto.categoria_id,
+      status: produto.status, // Atualizar status
     })
     .eq("id", id)
     .select()
@@ -313,4 +317,172 @@ export async function getCategoriaPorId(id: number) {
   }
 
   return data
+}
+
+// Função para buscar produtos com filtros
+export async function getProdutosComFiltros(filtros: any = {}) {
+  console.log("Filtros recebidos:", filtros) // Debug log
+
+  let query = supabaseAdmin.from("produtos").select("*, categorias(id, nome)")
+
+  // Aplicar filtros de forma mais robusta
+  if (filtros.categoria_id && filtros.categoria_id !== "all") {
+    query = query.eq("categoria_id", Number(filtros.categoria_id))
+    console.log("Filtro categoria aplicado:", filtros.categoria_id)
+  }
+
+  if (filtros.preco_min !== undefined && filtros.preco_min !== null && filtros.preco_min !== "") {
+    query = query.gte("valor", Number(filtros.preco_min))
+    console.log("Filtro preço mínimo aplicado:", filtros.preco_min)
+  }
+
+  if (filtros.preco_max !== undefined && filtros.preco_max !== null && filtros.preco_max !== "") {
+    query = query.lte("valor", Number(filtros.preco_max))
+    console.log("Filtro preço máximo aplicado:", filtros.preco_max)
+  }
+
+  if (filtros.estoque_min !== undefined && filtros.estoque_min !== null && filtros.estoque_min !== "") {
+    query = query.gte("quantidade", Number(filtros.estoque_min))
+    console.log("Filtro estoque mínimo aplicado:", filtros.estoque_min)
+  }
+
+  if (filtros.estoque_max !== undefined && filtros.estoque_max !== null && filtros.estoque_max !== "") {
+    query = query.lte("quantidade", Number(filtros.estoque_max))
+    console.log("Filtro estoque máximo aplicado:", filtros.estoque_max)
+  }
+
+  // CORREÇÃO: Usar status em vez de ativo
+  if (filtros.status && filtros.status !== "all") {
+    const isAtivo = filtros.status === "ativo"
+    query = query.eq("status", isAtivo)
+    console.log("Filtro status aplicado:", filtros.status, "-> status:", isAtivo)
+  }
+
+  if (filtros.busca && filtros.busca.trim() !== "") {
+    query = query.ilike("nome", `%${filtros.busca.trim()}%`)
+    console.log("Filtro busca aplicado:", filtros.busca)
+  }
+
+  if (filtros.data_inicio && filtros.data_inicio !== "") {
+    query = query.gte("created_at", filtros.data_inicio + "T00:00:00")
+    console.log("Filtro data início aplicado:", filtros.data_inicio)
+  }
+
+  if (filtros.data_fim && filtros.data_fim !== "") {
+    query = query.lte("created_at", filtros.data_fim + "T23:59:59")
+    console.log("Filtro data fim aplicado:", filtros.data_fim)
+  }
+
+  // Ordenar por nome
+  query = query.order("nome")
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("Erro ao buscar produtos com filtros:", error)
+    throw new Error("Não foi possível carregar os produtos")
+  }
+
+  console.log("Produtos retornados do banco:", data?.length || 0) // Debug log
+  return data || []
+}
+
+// Nova função para obter contagem total de produtos
+export async function getContagemProdutos() {
+  const { count, error } = await supabaseAdmin.from("produtos").select("*", { count: "exact", head: true })
+
+  if (error) {
+    console.error("Erro ao contar produtos:", error)
+    return 0
+  }
+
+  return count || 0
+}
+
+// Função para verificar se a coluna 'status' existe na tabela produtos
+export async function verificarEstruturaBanco() {
+  try {
+    const { data, error } = await supabaseAdmin.from("produtos").select("status").limit(1)
+
+    if (error && error.message.includes("column")) {
+      console.warn("Coluna 'status' não existe na tabela produtos")
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.warn("Não foi possível verificar a estrutura do banco:", error)
+    return false
+  }
+}
+
+// Função para edição em massa
+export async function atualizarProdutosEmMassa(produtoIds: string[], updates: any) {
+  const { data, error } = await supabaseAdmin.from("produtos").update(updates).in("id", produtoIds).select()
+
+  if (error) {
+    console.error("Erro na edição em massa:", error)
+    throw new Error("Não foi possível atualizar os produtos")
+  }
+
+  // Revalidar o cache da página de produtos
+  revalidatePath("/dashboard/produtos")
+
+  return data
+}
+
+// Função para aplicar desconto em massa
+export async function aplicarDescontoEmMassa(
+  produtoIds: string[],
+  tipoDesconto: "percentage" | "fixed",
+  valorDesconto: number,
+) {
+  // Buscar os produtos atuais
+  const { data: produtos, error: fetchError } = await supabaseAdmin
+    .from("produtos")
+    .select("id, valor")
+    .in("id", produtoIds)
+
+  if (fetchError) {
+    console.error("Erro ao buscar produtos para desconto:", fetchError)
+    throw new Error("Não foi possível buscar os produtos")
+  }
+
+  // Calcular novos preços
+  const updates = produtos.map((produto) => {
+    let novoValor: number
+
+    if (tipoDesconto === "percentage") {
+      novoValor = produto.valor * (1 - valorDesconto / 100)
+    } else {
+      novoValor = produto.valor - valorDesconto
+    }
+
+    // Garantir que o preço não seja negativo
+    novoValor = Math.max(0.01, novoValor)
+
+    return {
+      id: produto.id,
+      valor: Number(novoValor.toFixed(2)),
+    }
+  })
+
+  // Atualizar cada produto individualmente
+  const promises = updates.map((update) =>
+    supabaseAdmin.from("produtos").update({ valor: update.valor }).eq("id", update.id),
+  )
+
+  const results = await Promise.all(promises)
+
+  // Verificar se houve erros
+  const errors = results.filter((result) => result.error)
+  if (errors.length > 0) {
+    console.error("Erros na aplicação de desconto:", errors)
+    throw new Error("Não foi possível aplicar o desconto em todos os produtos")
+  }
+
+  // Revalidar o cache da página de produtos
+  revalidatePath("/dashboard/produtos")
+
+  return updates
 }

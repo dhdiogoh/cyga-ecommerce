@@ -10,6 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch" // Importar o componente Switch
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, ImageIcon, Trash2 } from "lucide-react"
 import { criarProduto, uploadImagem, getCategorias } from "@/lib/services/produtos-service"
@@ -33,6 +34,7 @@ export function ProductForm() {
       tamanho: "",
       quantidade: "", // Iniciar vazio, sem valor 0 fixo
       imagem: undefined,
+      status: true, // Adicionar status com valor padrão true (ativo)
     },
   })
 
@@ -51,7 +53,6 @@ export function ProductForm() {
         console.error(error)
       }
     }
-
     loadCategorias()
   }, [])
 
@@ -102,6 +103,7 @@ export function ProductForm() {
         quantidade: data.quantidade,
         tamanho: data.tamanho,
         categoria_id: data.categoria_id,
+        status: data.status, // Incluir o status
       })
 
       toast({
@@ -317,6 +319,26 @@ export function ProductForm() {
                 </FormItem>
               )}
             />
+
+            {/* Adicionar campo de status */}
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Status do Produto</FormLabel>
+                    <FormDescription>
+                      {field.value ? "Produto ativo (visível)" : "Produto inativo (oculto)"}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="imagem"
